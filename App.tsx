@@ -2,6 +2,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { VisaApplicationData, EligibilityResult } from './types';
 import { assessVisaEligibility } from './services/visaAlgorithm';
+import toast from 'react-hot-toast';
+import LoadingSpinner from './src/components/LoadingSpinner';
+import { exportResultToPDF } from './src/utils/pdfExport';
 import { 
   ClipboardDocumentCheckIcon, 
   UserIcon, 
@@ -23,7 +26,8 @@ import {
   BeakerIcon,
   CalendarIcon,
   BriefcaseIcon,
-  UsersIcon
+  UsersIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 
 const COUNTRIES = [
@@ -148,33 +152,54 @@ const App: React.FC = () => {
   };
 
   const sendCode = () => {
-    if (!formData.personalInfo.email.includes('@')) return;
+    if (!formData.personalInfo.email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setVerificationCode(code);
     setIsEmailSent(true);
-    alert(`[SIMULATION] Verification code sent: ${code}`);
+    toast.success(`Verification code sent: ${code}`, { duration: 6000 });
   };
 
   const verifyCode = () => {
     if (userInputCode === verificationCode) {
       setIsEmailVerified(true);
+      toast.success('Email verified successfully!');
     } else {
-      alert("Invalid code.");
+      toast.error('Invalid verification code. Please try again.');
     }
   };
 
   const handleSubmit = async () => {
-    if (!isEmailVerified) return;
+    if (!isEmailVerified) {
+      toast.error('Please verify your email first');
+      return;
+    }
     setLoading(true);
     try {
       const assessment = await assessVisaEligibility(formData, isSimulationMode ? baselineResult || undefined : undefined);
       setCurrentResult(assessment);
       if (!baselineResult) setBaselineResult(assessment);
+      toast.success('Assessment completed successfully!');
       setStep(6);
     } catch (err) {
-      alert("Assessment failed.");
+      toast.error('Assessment failed. Please check your API key and try again.');
+      console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (currentResult) {
+      try {
+        exportResultToPDF(formData, currentResult);
+        toast.success('PDF downloaded successfully!');
+      } catch (err) {
+        toast.error('Failed to generate PDF');
+        console.error(err);
+      }
     }
   };
 
@@ -182,6 +207,10 @@ const App: React.FC = () => {
     setIsSimulationMode(true);
     setStep(1);
   };
+
+  if (loading) {
+    return <LoadingSpinner message="Analyzing your visa eligibility with AI..." />;
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
@@ -559,13 +588,21 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-12 flex flex-col md:flex-row gap-4">
+            <div className="mt-12 space-y-4">
               <button 
-                onClick={toggleSimulation} 
-                className="flex-1 py-5 bg-amber-600 text-white font-black text-xl rounded-2xl hover:bg-amber-700 shadow-xl flex items-center justify-center transition-all active:scale-95"
+                onClick={handleExportPDF}
+                className="w-full py-5 bg-primary-600 text-white font-black text-xl rounded-2xl hover:bg-primary-700 shadow-xl flex items-center justify-center transition-all active:scale-95"
               >
-                <BeakerIcon className="w-6 h-6 mr-2" /> RUN "WHAT IF" SCENARIO
+                <ArrowDownTrayIcon className="w-6 h-6 mr-2" /> DOWNLOAD PDF REPORT
               </button>
+              
+              <div className="flex flex-col md:flex-row gap-4">
+                <button 
+                  onClick={toggleSimulation} 
+                  className="flex-1 py-5 bg-amber-600 text-white font-black text-xl rounded-2xl hover:bg-amber-700 shadow-xl flex items-center justify-center transition-all active:scale-95"
+                >
+                  <BeakerIcon className="w-6 h-6 mr-2" /> RUN "WHAT IF" SCENARIO
+                </button>
               <button 
                 onClick={() => {
                   setStep(1);

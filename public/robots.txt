@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://uk-visa-simulator.vercel.app/sitemap.xml
